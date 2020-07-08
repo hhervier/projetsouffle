@@ -1,0 +1,410 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jul  7 23:25:31 2020
+
+@author: macbook
+"""
+
+
+import numpy as np
+import wave
+import matplotlib.pyplot as plt
+import scipy
+from scipy import signal
+
+
+def inst_f(wav_name, f_rate = 100):
+    file = wave.open(wav_name, 'rb')
+    params = file.getparams()
+    nchannels, sampwidth, framerate, nframes = params[:4]
+
+    # print('channel:', nchannels, 'sampwidth:', sampwidth, 'framerate:', framerate, 'numframes:', nframes)
+
+    strData = file.readframes(nframes)  # read the file and save as string.
+    file.close()
+
+    waveData = np.frombuffer(strData, dtype=np.int16)
+
+    f, t, Zxx = scipy.signal.stft(waveData, fs = framerate, nperseg = int(framerate/f_rate))
+
+    f_ins = np.zeros(t.shape)
+    for i in range(len(f_ins)):
+        f_ins[i] = np.sum(np.multiply(f,np.abs(Zxx[:,i])))/len(f)
+    
+    return t, f_ins
+
+
+t,f_ins=inst_f("/Users/macbook/Downloads/pack1/anne-invoque-l-eternel.wav")
+plt.plot(t,f_ins)
+plt.show()
+
+
+
+
+import numpy as np
+import soundfile as sf
+import wave
+import sounddevice as sd
+import scipy
+from matplotlib import pyplot as plt
+def traitementsignal(cheminson,chemintexte):
+    son , Fe = sf.read(cheminson)
+
+    N = son.shape[0]
+    te = np.arange(0,N)/Fe
+    # plt.figure(1)
+    # #plt.plot(te,son,label='Voie 0')
+    # plt.title('Signal la.wav')
+    # plt.legend()
+    # plt.grid(True)
+    # plt.xlabel('Temps (s)')
+    # plt.ylabel('Amplitude (u.a.)')
+    # plt.pause(0.1)
+
+    M=son
+    Amplitude=[]
+    for i in range (0,len(M)):
+        Amplitude.append(abs(M[i]))
+
+    plt.plot(te,Amplitude)
+
+    fichier=open(chemintexte,"r")
+    contenu=fichier.read().splitlines()
+    #print(contenu)
+    contenu2=[]
+    for i in range (0,len(contenu)):
+        contenu2.append(contenu[i].split('\t'))
+        #print(contenu2)
+
+    temps=[]
+    thorax=[]
+    abdomen=[]
+    for i in range(1,len(contenu2)):
+        temps.append(float(contenu2[i][0]))
+        thorax.append(float(contenu2[i][1]))
+        abdomen.append(float(contenu2[i][2]))
+        
+    temps2=[]
+    for i in range(0,len(temps)):
+        temps2.append((temps[i]-temps[0])*te[len(te)-1]/(temps[-1]-temps[0]))
+    
+    
+    print(temps,thorax,abdomen)
+    plt.plot(temps2,thorax)
+    plt.plot(temps2,abdomen)
+    plt.show()
+    
+    
+    
+    
+    
+    
+import random
+import matplotlib.pyplot as plt
+
+import soundfile
+import scipy
+import numpy as np
+import wave
+import matplotlib.pyplot as plt
+from scipy import signal
+
+def inst_f(wav_name, f_rate = 50):
+    file = wave.open(wav_name, 'rb')
+    params = file.getparams()
+    nchannels, sampwidth, framerate, nframes = params[:4]
+
+    # print('channel:', nchannels, 'sampwidth:', sampwidth, 'framerate:', framerate, 'numframes:', nframes)
+
+    strData = file.readframes(nframes)  # read the file and save as string.
+    file.close()
+
+    waveData = np.frombuffer(strData, dtype=np.int16)
+
+    f, t, Zxx = scipy.signal.stft(waveData, fs = framerate, nperseg = int(framerate/f_rate))
+
+    f_ins = np.zeros(t.shape)
+    for i in range(len(f_ins)):
+        f_ins[i] = np.sum(np.multiply(f,np.abs(Zxx[:,i])))/len(f)
+    
+    return t, f_ins
+
+#t, f_ins = inst_f('/Users/hadrien/Downloads/pack1-2/anne-invoque-l-eternel.wav', f_rate = 100)
+#plt.plot(t, f_ins)
+#print(len(t))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import soundfile as sf
+
+
+def is_peak(data, n, ordre = 3):
+    flag = True
+    for i in range(1,ordre+1):
+        flag *= (data[n] > data[n-i])
+        flag *= (data[n] > data[n+i])
+    return flag
+
+# to find peaks of data
+def find_peaks(data, ordre = 3):
+    pks = []
+    for i in range(len(data)):
+        if i in range(ordre) or len(data)-i-1 in range(ordre):
+            if data[i] != 0:
+                pks.append([i,data[i]])
+        else:
+            if is_peak(data, i, ordre):
+                pks.append([i,data[i]])
+            else:
+                pass
+    return np.array(pks)
+
+# average filter
+def average(pts, ordre = 2):
+    pts_res = pts
+    for i in range(ordre, pts.shape[0]):
+        sum = 0
+        for p in range(ordre+1):
+            sum += pts[i-p][1]
+        pts_res[i][1] = sum/(ordre+1)
+    return pts_res
+
+def data_simplify(data, ordre_peak = 3, ordre_average = 2, seuil_valeur = 0.5, seuil_nombre = 0.01):
+    # ordre_peak: nomber for search a peak,
+    # ordre_average: order of the average filter
+    # seuil_valeur: threshold for iliminating uneccessary peaks
+    # seuil_nombre: threshold for stopping reducing peaks
+    data_p = np.zeros(len(data))
+    for i in range(len(data)):
+        if data[i] >= 0:
+            data_p[i] = data[i]
+    
+    pks = find_peaks(data_p, ordre_peak)
+            
+    flag = True
+    while flag:
+        pks_tmp = []
+        for i in range(1,len(pks)-1):
+            if (pks[i-1,1]-pks[i,1])/pks[i,1] > seuil_valeur or (pks[i+1,1]-pks[i,1])/pks[i,1] > seuil_valeur:
+                pass
+            else:
+                pks_tmp.append([pks[i,0],pks[i,1]])
+        if (pks.shape[0]-len(pks_tmp))/pks.shape[0] < seuil_nombre:
+            pks = np.array(pks_tmp)
+            flag = False
+        else:
+            pks = np.array(pks_tmp)
+    return average(pks, ordre_average)
+
+def traitementsignal(cheminson,chemintexte):
+    son , Fe = sf.read(cheminson)
+    f = wave.open(cheminson, 'rb')
+    params = f.getparams()
+    nchannels, sampwidth, framerate, nframes = params[:4]
+    strData = f.readframes(nframes)
+    f.close()
+    waveData = np.frombuffer(strData, dtype=np.int16)
+    data_simplified = data_simplify(waveData)
+    N = son.shape[0]
+    te = np.arange(0,N)/Fe
+    time_amplitude=[]
+    for i in range (0,len(data_simplified[:,0])):
+        time_amplitude.append(data_simplified[:,0][i]*te[-1]/(data_simplified[:,0][-1]))
+    #plt.plot(time,data_simplified[:,1]/9000)
+
+    fichier=open(chemintexte,"r")
+    contenu=fichier.read().splitlines()
+    #print(contenu)
+    contenu2=[]
+    for i in range (0,len(contenu)):
+        contenu2.append(contenu[i].split('\t'))
+        #print(contenu2)
+
+    temps=[]
+    thorax=[]
+    abdomen=[]
+    for i in range(1,len(contenu2)):
+        temps.append(float(contenu2[i][0]))
+        thorax.append(float(contenu2[i][1]))
+        abdomen.append(float(contenu2[i][2]))
+        
+    temps2=[]
+    for i in range(0,len(temps)):
+        temps2.append((temps[i]-temps[0])*te[len(te)-1]/(temps[-1]-temps[0]))
+    
+    
+    #print(temps,thorax,abdomen)
+    #plt.plot(temps2,thorax)
+    #plt.plot(temps2,abdomen)
+    #plt.show()
+    return time_amplitude,data_simplified[:,1]/9000,thorax,abdomen,temps2
+
+
+
+
+
+
+
+
+
+
+
+def trafique(cheminson,chemintexte,f_rate=50):
+    tf,freq=inst_f(cheminson, f_rate = 50)
+    tamp,amp,thorax,abdomen,temps=traitementsignal(cheminson,chemintexte)
+    a=len(tf)
+    b=len(tamp)
+    c=len(temps)
+    d=min(a,b,c)
+    if d==a:
+        t=tf
+        e=freq
+    elif d==b:
+        t=tamp
+        e=amp
+    else:
+        t=temps
+        e=thorax
+    freq2=proportion2(freq,e)
+    amp2=proportion2(amp,e)
+    thorax2=proportion2(thorax,e)
+    abdomen2=proportion2(abdomen,e)
+    #plt.plot(t,np.array(freq2)/10000)
+    #plt.plot(t,amp2)
+    #plt.plot(t,thorax2)
+    #plt.plot(t,abdomen2)
+    #return freq2,amp2,thorax2,abdomen2,t   
+    return amp2,freq2,thorax2,abdomen2,t
+    
+def proportion(liste,e):
+    A=len(liste)//len(e)
+    B=len(liste)/len(e)-A
+    liste2=[]
+    i=0
+    while i<len(liste):
+        liste2+=[liste[i]]
+        i+=A+(random.random()<B)
+        
+    return liste2
+        
+        
+   
+def enleve(liste,N):
+    for i in range(N):
+        j=random.randint(0,len(liste)-1)
+        del liste[j]
+    return liste
+
+def rajout(liste,N):
+    for i in range(N):
+        j=random.randint(0,len(liste))
+        if j==0:
+            liste[0:0]=[liste[0]]
+        else:
+            a=liste[j-1]
+            liste[j:j]=[a]
+    return liste
+
+def proportion2(liste,e):
+    liste2=proportion(liste,e)
+    liste3=[]
+    if len(liste2)>len(e):
+        N=len(liste2)-len(e)
+        liste3=enleve(liste2,N)
+        return liste3
+    elif len(e)>len(liste2):
+        N=len(e)-len(liste2)
+        liste3=rajout(liste2,N)
+        return liste3
+    return liste2
+
+
+
+from mpl_toolkits import mplot3d
+from math import pi
+from math import cos
+from math import sin
+from trafique import trafique
+
+import numpy as np
+#%matplotlib inline
+import matplotlib.pyplot as plt
+#fig = plt.figure()
+#ax = plt.axes(projection='3d')
+
+def nuagepoints(N,a,b,c):
+    #fig = plt.figure()
+    #ax = plt.axes(projection='3d')
+    phi=[]
+    omega=[]
+    X=[]
+    Y=[]
+    Z=[]
+    for i in range(0,N+1):
+        phi.append(2*pi*i/N)
+        omega.append(pi*i/N)
+    for i in range (len(phi)):
+        for j in range (len(omega)):
+            X.append(a*sin(omega[j])*cos(phi[i]))
+            Y.append(b*sin(omega[j])*sin(phi[i]))
+            Z.append(c*cos(omega[j]))
+    #ax.scatter(X, Y, Z,s=2)
+    #plt.gca().set_aspect(aspect = 'equal')
+    #plt.show()
+    return X,Y,Z 
+    
+    
+def ellipse(amp2,freq2,thorax2,abdomen2,t,N):
+    thorax3=[i-min(thorax2)+0.1*max(thorax2) for i in thorax2]
+    X=[0]*len(t)
+    Y=[0]*len(t)
+    Z=[0]*len(t)
+    for i in range (len(t)):
+        X[i],Y[i],Z[i]=nuagepoints(N,thorax3[i],amp2[i],amp2[i])
+    return X,Y,Z,t.tolist(),freq2       
+
+
+
+def oscillation(X,Y,Z,t,freq,c=10):
+    # il faut que X1 freq et t soient la même taille
+    alpha = 0.1
+    beta = 2*np.pi
+    X2=[]
+    Y2=[]
+    Z2=[]
+    for i in range(len(t)):
+        X2+=[[x*(1+alpha*np.cos(freq[i]*beta*(t[i]-x/c))) for x in X[i]]]
+        Y2+=[[y*(1+alpha*np.cos(freq[i]*beta*(t[i]-y/c))) for y in Y[i]]]
+        Z2+=[[z*(1+alpha*np.cos(freq[i]*beta*(t[i]-z/c))) for z in Z[i]]]
+    return X2,Y2,Z2
+
+
+
+
+def test(cheminson,chemintexte,N):
+    amp,freq,thorax,abdomen,t=trafique(cheminson,chemintexte)
+    Xf,Yf,Zf,tf,ff= ellipse(amp,freq,thorax,abdomen,t,N)
+    x,y,z= oscillation(Xf,Yf,Zf,tf,ff)
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    ax.scatter(x[100], y[100], z[100],s=2)
+    plt.gca().set_aspect(aspect = 'equal')
+    plt.show()
+
+
+
+
+  
